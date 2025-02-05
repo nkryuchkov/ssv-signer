@@ -6,7 +6,7 @@ func NewMockClient(string) (*MockClient, error) {
 	return &MockClient{}, nil
 }
 
-func (MockClient) ImportKeystore() error {
+func (MockClient) ImportKeystore(keystore, keystorePassword string) error {
 	return nil
 }
 

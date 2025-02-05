@@ -35,19 +35,19 @@ func main() {
 		zap.String("password_file", cli.PasswordFile),
 	)
 
-	operatorKey, err := keystore.LoadOperatorKeystore(cli.PrivateKeyFile, cli.PasswordFile)
+	operatorKeystore, err := keystore.LoadOperatorKeystore(cli.PrivateKeyFile, cli.PasswordFile)
 	if err != nil {
 		logger.Fatal("failed to load operator key", zap.Error(err))
 	}
 
-	web3SignerClient, err := web3signer.NewMockClient(cli.Web3SignerEndpoint)
+	web3SignerClient, err := web3signer.NewClient(cli.Web3SignerEndpoint)
 	if err != nil {
 		logger.Fatal("create web3signer client", zap.Error(err))
 	}
 
 	logger.Info("Starting ssv-signer server", zap.String("addr", cli.ListenAddr))
 
-	srv := server.New(logger, operatorKey, web3SignerClient)
+	srv := server.New(logger, operatorKeystore, web3SignerClient)
 	if err := fasthttp.ListenAndServe(cli.ListenAddr, srv.Handler()); err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}

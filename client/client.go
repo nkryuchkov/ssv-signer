@@ -30,9 +30,9 @@ func NewClient(baseURL string) *Client {
 func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) error {
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
-	requestBody := map[string]interface{}{
-		"encrypted_share":  encryptedShare,
-		"validator_pubkey": validatorPubKey,
+	requestBody := server.AddValidatorRequest{
+		EncryptedShare:     encryptedShare,
+		ValidatorPublicKey: validatorPubKey,
 	}
 
 	data, err := json.Marshal(requestBody)
@@ -56,9 +56,7 @@ func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) err
 func (c *Client) RemoveValidator(sharePubKey string) error {
 	url := fmt.Sprintf("%s/v1/validators/remove", c.baseURL)
 
-	requestBody := map[string]string{
-		"share_pubkey": sharePubKey,
-	}
+	requestBody := server.RemoveValidatorRequest{SharePublicKey: sharePubKey}
 
 	data, err := json.Marshal(requestBody)
 	if err != nil {
@@ -78,12 +76,12 @@ func (c *Client) RemoveValidator(sharePubKey string) error {
 	return nil
 }
 
-func (c *Client) Sign(sharePubKey string, payload interface{}) (string, error) {
+func (c *Client) Sign(sharePubKey string, payload []byte) (string, error) {
 	url := fmt.Sprintf("%s/v1/validators/sign", c.baseURL)
 
-	requestBody := map[string]interface{}{
-		"share_pubkey": sharePubKey,
-		"object":       payload,
+	requestBody := server.ValidatorSignRequest{
+		SharePublicKey: sharePubKey,
+		Payload:        payload,
 	}
 
 	data, err := json.Marshal(requestBody)
