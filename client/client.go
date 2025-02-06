@@ -32,8 +32,8 @@ func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) err
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
 	requestBody := server.AddValidatorRequest{
-		EncryptedShare:     hex.EncodeToString(encryptedShare),
-		ValidatorPublicKey: validatorPubKey,
+		EncryptedSharePrivateKey: hex.EncodeToString(encryptedShare),
+		ValidatorPublicKey:       validatorPubKey,
 	}
 
 	data, err := json.Marshal(requestBody)

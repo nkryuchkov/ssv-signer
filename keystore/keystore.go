@@ -43,8 +43,9 @@ func LoadOperatorKeystore(encryptedPrivateKeyFile, passwordFile string) (*Operat
 	}, nil
 }
 
-func (ks *OperatorKeyStore) GenerateShareKeystore(sharePubKey []byte) (string, string, error) {
-	encryptedKeystoreJSON, err := keystorev4.New().Encrypt(sharePubKey, ks.Password) // TODO: use another password
+func (ks *OperatorKeyStore) GenerateShareKeystore(sharePrivateKey []byte) (string, string, error) {
+	passphrase := "" // TODO: set passphrase
+	encryptedKeystoreJSON, err := keystorev4.New().Encrypt(sharePrivateKey, passphrase)
 	if err != nil {
 		return "", "", fmt.Errorf("encrypt private key: %w", err)
 	}
@@ -54,5 +55,5 @@ func (ks *OperatorKeyStore) GenerateShareKeystore(sharePubKey []byte) (string, s
 		return "", "", fmt.Errorf("marshal encrypted keystore: %w", err)
 	}
 
-	return string(encryptedData), ks.Password, nil
+	return string(encryptedData), passphrase, nil
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/fasthttp/router"
 	"github.com/ssvlabs/ssv-signer/keystore"
 	"github.com/ssvlabs/ssv-signer/web3signer"
-	spectypes "github.com/ssvlabs/ssv-spec/types"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -45,8 +44,8 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 }
 
 type AddValidatorRequest struct {
-	EncryptedShare     string `json:"encrypted_share"`
-	ValidatorPublicKey string `json:"validator_pubkey"`
+	EncryptedSharePrivateKey string `json:"encrypted_share_privkey"`
+	ValidatorPublicKey       string `json:"validator_pubkey"`
 }
 
 type AddValidatorResponse struct{}
@@ -59,35 +58,28 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	encryptedShare, err := hex.DecodeString(req.EncryptedShare)
+	encryptedSharePrivateKey, err := hex.DecodeString(req.EncryptedSharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid validator public key: %v", err)
+		fmt.Fprintf(ctx, "invalid share private key: %v", err)
 		return
 	}
 
-	decryptedShare, err := r.OperatorKeystore.PrivKey.Decrypt(encryptedShare)
+	sharePrivateKey, err := r.OperatorKeystore.PrivKey.Decrypt(encryptedSharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
 		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)
 		return
 	}
 
-	share := &spectypes.Share{} // TODO: or ssvtypes.Share?
-	if err := share.Decode(decryptedShare); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "failed to decode decrypted share: %v", err)
-		return
-	}
-
-	shareKeyStore, shareKeyStorePassword, err := r.OperatorKeystore.GenerateShareKeystore(share.SharePubKey)
+	shareKeystore, shareKeystorePassword, err := r.OperatorKeystore.GenerateShareKeystore(sharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to generate share keystore: %v", err)
 		return
 	}
 
-	err = r.Web3SignerClient.ImportKeystore(shareKeyStore, shareKeyStorePassword)
+	err = r.Web3SignerClient.ImportKeystore(shareKeystore, shareKeystorePassword)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to import share to Web3Signer: %v", err)
