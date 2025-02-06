@@ -17,7 +17,7 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(baseURL string) *Client {
+func New(baseURL string) *Client {
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	return &Client{
