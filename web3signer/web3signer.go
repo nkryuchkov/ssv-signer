@@ -63,11 +63,8 @@ func (c *Client) ImportKeystore(keystore, keystorePassword string) error {
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Client) DeleteKeystore(pubkey string) error {
-	if !strings.HasPrefix(pubkey, "0x") {
-		pubkey = "0x" + pubkey
-	}
-	url := fmt.Sprintf("%s/eth/v1/keystores/%s", c.baseURL, pubkey)
+func (c *Client) DeleteKeystore(sharePubKey string) error {
+	url := fmt.Sprintf("%s/eth/v1/keystores/%s", c.baseURL, sharePubKey)
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -87,15 +84,8 @@ func (c *Client) DeleteKeystore(pubkey string) error {
 	return nil
 }
 
-func (c *Client) Sign(pubkey string, payload interface{}) (string, error) {
-	// TODO: Note: public key is share public key and not validator public key
-	// TODO: check the note above
-
-	if !strings.HasPrefix(pubkey, "0x") {
-		pubkey = "0x" + pubkey
-	}
-
-	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, pubkey)
+func (c *Client) Sign(sharePubKey string, payload interface{}) (string, error) {
+	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, sharePubKey)
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {

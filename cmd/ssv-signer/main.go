@@ -12,10 +12,10 @@ import (
 )
 
 type CLI struct {
-	ListenAddr         string `json:"listen_addr"`
-	Web3SignerEndpoint string `json:"web3signer_endpoint"`
-	PrivateKeyFile     string `json:"private_key_file"`
-	PasswordFile       string `json:"password_file"`
+	ListenAddr         string `env:"LISTEN_ADDR" default:":8080"`
+	Web3SignerEndpoint string `env:"WEB3SIGNER_ENDPOINT"`
+	PrivateKeyFile     string `env:"PRIVATE_KEY_FILE"`
+	PasswordFile       string `env:"PASSWORD_FILE"`
 }
 
 func main() {

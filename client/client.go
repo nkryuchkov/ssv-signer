@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,7 +32,7 @@ func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) err
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
 	requestBody := server.AddValidatorRequest{
-		EncryptedShare:     encryptedShare,
+		EncryptedShare:     hex.EncodeToString(encryptedShare),
 		ValidatorPublicKey: validatorPubKey,
 	}
 
