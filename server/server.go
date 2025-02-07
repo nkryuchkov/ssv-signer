@@ -94,7 +94,7 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 }
 
 type RemoveValidatorRequest struct {
-	SharePublicKey string `json:"share_pubkey"`
+	SharePublicKey []byte `json:"share_pubkey"`
 }
 
 type RemoveValidatorResponse struct{}
@@ -119,12 +119,12 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 }
 
 type ValidatorSignRequest struct {
-	SharePublicKey string `json:"share_pubkey"`
+	SharePublicKey []byte `json:"share_pubkey"`
 	Payload        []byte `json:"payload"`
 }
 
 type ValidatorSignResponse struct {
-	Signature string `json:"signature"`
+	Signature []byte `json:"signature"`
 }
 
 func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {

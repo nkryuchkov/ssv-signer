@@ -2,6 +2,7 @@ package web3signer
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -63,8 +64,8 @@ func (c *Client) ImportKeystore(keystore, keystorePassword string) error {
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Client) DeleteKeystore(sharePubKey string) error {
-	url := fmt.Sprintf("%s/eth/v1/keystores/%s", c.baseURL, sharePubKey)
+func (c *Client) DeleteKeystore(sharePubKey []byte) error {
+	url := fmt.Sprintf("%s/eth/v1/keystores/%s", c.baseURL, hex.EncodeToString(sharePubKey))
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -84,28 +85,28 @@ func (c *Client) DeleteKeystore(sharePubKey string) error {
 	return nil
 }
 
-func (c *Client) Sign(sharePubKey string, payload interface{}) (string, error) {
-	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, sharePubKey)
+func (c *Client) Sign(sharePubKey []byte, payload []byte) ([]byte, error) {
+	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("marshal sign payload: %w", err)
+		return nil, fmt.Errorf("marshal sign payload: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return "", fmt.Errorf("create sign request: %w", err)
+		return nil, fmt.Errorf("create sign request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("sign request failed: %w", err)
+		return nil, fmt.Errorf("sign request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	// TODO: check response format
@@ -114,8 +115,13 @@ func (c *Client) Sign(sharePubKey string, payload interface{}) (string, error) {
 	}
 	respData, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(respData, &jsonResp); err != nil {
-		return "", fmt.Errorf("unmarshal sign response: %w", err)
+		return nil, fmt.Errorf("unmarshal sign response: %w", err)
 	}
 
-	return jsonResp.Signature, nil
+	sigBytes, err := hex.DecodeString(jsonResp.Signature)
+	if err != nil {
+		return nil, fmt.Errorf("decode signature: %w", err)
+	}
+
+	return sigBytes, nil
 }

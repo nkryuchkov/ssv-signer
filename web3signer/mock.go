@@ -10,10 +10,10 @@ func (MockClient) ImportKeystore(keystore, keystorePassword string) error {
 	return nil
 }
 
-func (MockClient) DeleteKeystore(pubkey string) error {
+func (MockClient) DeleteKeystore(sharePubKey []byte) error {
 	return nil
 }
 
-func (MockClient) Sign(pubkey string, payload interface{}) (string, error) {
-	return "", nil
+func (MockClient) Sign(sharePubKey []byte, payload []byte) ([]byte, error) {
+	return nil, nil
 }
