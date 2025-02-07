@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -44,8 +43,8 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 }
 
 type AddValidatorRequest struct {
-	EncryptedSharePrivateKey string `json:"encrypted_share_privkey"`
-	ValidatorPublicKey       string `json:"validator_pubkey"`
+	EncryptedSharePrivateKey []byte `json:"encrypted_share_privkey"`
+	ValidatorPublicKey       []byte `json:"validator_pubkey"`
 }
 
 type AddValidatorResponse struct{}
@@ -58,14 +57,9 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	encryptedSharePrivateKey, err := hex.DecodeString(req.EncryptedSharePrivateKey)
-	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid share private key: %v", err)
-		return
-	}
+	// TODO: use req.ValidatorPublicKey
 
-	sharePrivateKey, err := r.OperatorKeystore.PrivKey.Decrypt(encryptedSharePrivateKey)
+	sharePrivateKey, err := r.OperatorKeystore.PrivKey.Decrypt(req.EncryptedSharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
 		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)

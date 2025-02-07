@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,11 +28,11 @@ func New(baseURL string) *SSVSignerClient {
 	}
 }
 
-func (c *SSVSignerClient) AddValidator(encryptedShare []byte, validatorPubKey string) error {
+func (c *SSVSignerClient) AddValidator(encryptedShare, validatorPubKey []byte) error {
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
 	requestBody := server.AddValidatorRequest{
-		EncryptedSharePrivateKey: hex.EncodeToString(encryptedShare),
+		EncryptedSharePrivateKey: encryptedShare,
 		ValidatorPublicKey:       validatorPubKey,
 	}
 
