@@ -88,12 +88,7 @@ func (c *Client) DeleteKeystore(sharePubKey []byte) error {
 func (c *Client) Sign(sharePubKey []byte, payload []byte) ([]byte, error) {
 	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
 
-	bodyBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal sign payload: %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("create sign request: %w", err)
 	}
