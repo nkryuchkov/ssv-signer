@@ -14,6 +14,6 @@ func (MockClient) DeleteKeystore(sharePubKey []byte) error {
 	return nil
 }
 
-func (MockClient) Sign(sharePubKey []byte, payload []byte) ([]byte, error) {
+func (MockClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
 	return nil, nil
 }

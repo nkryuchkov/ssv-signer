@@ -31,7 +31,7 @@ func New(logger *zap.Logger, operatorKeyStore *keystore.OperatorKeyStore, web3Si
 
 	r.POST("/v1/validators/add", server.handleAddValidator)
 	r.POST("/v1/validators/remove", server.handleRemoveValidator)
-	r.POST("/v1/validators/sign", server.handleSignValidator)
+	r.POST("/v1/validators/sign/{identifier}", server.handleSignValidator)
 
 	r.GET("/v1/operator/identity", server.handleOperatorIdentity)
 	r.POST("/v1/operator/sign", server.handleSignOperator)
@@ -119,8 +119,8 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 }
 
 type ValidatorSignRequest struct {
-	SharePublicKey []byte `json:"share_pubkey"`
-	Payload        []byte `json:"payload"`
+	SharePublicKey []byte                 `json:"share_pubkey"`
+	Payload        web3signer.SignRequest `json:"payload"`
 }
 
 type ValidatorSignResponse struct {

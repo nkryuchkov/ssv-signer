@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-type Client struct {
+type Web3SignerClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-func NewClient(baseURL string) (*Client, error) {
+func New(baseURL string) (*Web3SignerClient, error) {
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	return &Client{
+	return &Web3SignerClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -28,67 +28,107 @@ func NewClient(baseURL string) (*Client, error) {
 }
 
 // ImportKeystore adds a key to Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Keymanager/operation/KEYMANAGER_IMPORT
-func (c *Client) ImportKeystore(keystore, keystorePassword string) error {
-	payload := struct {
-		Keystores []string
-		Passwords []string
-	}{
-		Keystores: []string{keystore},
-		Passwords: []string{keystorePassword},
+func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) error {
+	payload := ImportKeystoreRequest{
+		Keystores:          []string{keystore},
+		Passwords:          []string{keystorePassword},
+		SlashingProtection: "", // TODO
 	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshal import payload: %w", err)
+		return fmt.Errorf("marshal payload: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/eth/v1/keystores", c.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create import request: %w", err)
+		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	httpResp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("import request failed: %w", err)
+		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer httpResp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	respBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+	var resp ImportKeystoreResponse
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return fmt.Errorf("unmarshal response: %w", err)
 	}
 
-	// TODO parse the response to confirm successful import
+	if httpResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
+	}
+
+	for i, data := range resp.Data {
+		if data.Status != "imported" {
+			return fmt.Errorf("unexpected key %d import status: %s", i, data.Status)
+		}
+	}
+
 	return nil
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Client) DeleteKeystore(sharePubKey []byte) error {
-	url := fmt.Sprintf("%s/eth/v1/keystores/%s", c.baseURL, hex.EncodeToString(sharePubKey))
-
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
-	if err != nil {
-		return fmt.Errorf("create delete request: %w", err)
+func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
+	payload := DeleteKeystoreRequest{
+		Pubkeys: []string{hex.EncodeToString(sharePubKey)},
 	}
 
-	resp, err := c.httpClient.Do(req)
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("delete request failed: %w", err)
+		return fmt.Errorf("marshal payload: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	url := fmt.Sprintf("%s/eth/v1/keystores", c.baseURL)
+	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	httpResp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	respBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+	var resp DeleteKeystoreResponse
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
+	}
+
+	for i, data := range resp.Data {
+		if data.Status != "deleted" {
+			return fmt.Errorf("unexpected key %d delete status: %s", i, data.Status)
+		}
 	}
 
 	return nil
 }
 
-func (c *Client) Sign(sharePubKey []byte, payload []byte) ([]byte, error) {
-	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
+// Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
+func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal payload: %w", err)
+	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
+	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create sign request: %w", err)
 	}

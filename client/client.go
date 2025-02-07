@@ -10,17 +10,18 @@ import (
 	"time"
 
 	"github.com/ssvlabs/ssv-signer/server"
+	"github.com/ssvlabs/ssv-signer/web3signer"
 )
 
-type Client struct {
+type SSVSignerClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-func New(baseURL string) *Client {
+func New(baseURL string) *SSVSignerClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	return &Client{
+	return &SSVSignerClient{
 		baseURL: baseURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -28,7 +29,7 @@ func New(baseURL string) *Client {
 	}
 }
 
-func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) error {
+func (c *SSVSignerClient) AddValidator(encryptedShare []byte, validatorPubKey string) error {
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
 	requestBody := server.AddValidatorRequest{
@@ -54,7 +55,7 @@ func (c *Client) AddValidator(encryptedShare []byte, validatorPubKey string) err
 	return nil
 }
 
-func (c *Client) RemoveValidator(sharePubKey string) error {
+func (c *SSVSignerClient) RemoveValidator(sharePubKey []byte) error {
 	url := fmt.Sprintf("%s/v1/validators/remove", c.baseURL)
 
 	requestBody := server.RemoveValidatorRequest{SharePublicKey: sharePubKey}
@@ -70,14 +71,14 @@ func (c *Client) RemoveValidator(sharePubKey string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	if resp.StatusCode < http.StatusOK {
 		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
-func (c *Client) Sign(sharePubKey string, payload []byte) (string, error) {
+func (c *SSVSignerClient) Sign(sharePubKey []byte, payload web3signer.SignRequest) (string, error) {
 	url := fmt.Sprintf("%s/v1/validators/sign", c.baseURL)
 
 	requestBody := server.ValidatorSignRequest{
@@ -96,7 +97,7 @@ func (c *Client) Sign(sharePubKey string, payload []byte) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
@@ -110,7 +111,7 @@ func (c *Client) Sign(sharePubKey string, payload []byte) (string, error) {
 	return response.Signature, nil
 }
 
-func (c *Client) GetOperatorIdentity() (string, error) {
+func (c *SSVSignerClient) GetOperatorIdentity() (string, error) {
 	url := fmt.Sprintf("%s/v1/operator/identity", c.baseURL)
 
 	resp, err := c.httpClient.Get(url)
@@ -119,7 +120,7 @@ func (c *Client) GetOperatorIdentity() (string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
@@ -131,7 +132,7 @@ func (c *Client) GetOperatorIdentity() (string, error) {
 	return result.PublicKey, nil
 }
 
-func (c *Client) OperatorSign(payload []byte) ([]byte, error) {
+func (c *SSVSignerClient) OperatorSign(payload []byte) ([]byte, error) {
 	url := fmt.Sprintf("%s/v1/operator/sign", c.baseURL)
 
 	requestBody := server.OperatorSignRequest{Payload: payload}

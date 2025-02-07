@@ -40,7 +40,7 @@ func main() {
 		logger.Fatal("failed to load operator key", zap.Error(err))
 	}
 
-	web3SignerClient, err := web3signer.NewClient(cli.Web3SignerEndpoint)
+	web3SignerClient, err := web3signer.New(cli.Web3SignerEndpoint)
 	if err != nil {
 		logger.Fatal("create web3signer client", zap.Error(err))
 	}
