@@ -5,27 +5,31 @@ import (
 	"fmt"
 
 	"github.com/fasthttp/router"
-	"github.com/ssvlabs/ssv-signer/keystore"
+	"github.com/ssvlabs/ssv-signer/keys"
 	"github.com/ssvlabs/ssv-signer/web3signer"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	Logger           *zap.Logger
-	OperatorKeystore *keystore.OperatorKeyStore
-	Web3SignerClient web3signer.Interface
-	Router           *router.Router
+	Logger             *zap.Logger
+	OperatorPrivateKey keys.OperatorPrivateKey
+	Web3SignerClient   web3signer.Interface
+	Router             *router.Router
 }
 
-func New(logger *zap.Logger, operatorKeyStore *keystore.OperatorKeyStore, web3SignerClient web3signer.Interface) *Server {
+func New(
+	logger *zap.Logger,
+	operatorPrivateKey keys.OperatorPrivateKey,
+	web3SignerClient web3signer.Interface,
+) *Server {
 	r := router.New()
 
 	server := &Server{
-		Logger:           logger,
-		OperatorKeystore: operatorKeyStore,
-		Web3SignerClient: web3SignerClient,
-		Router:           r,
+		Logger:             logger,
+		OperatorPrivateKey: operatorPrivateKey,
+		Web3SignerClient:   web3SignerClient,
+		Router:             r,
 	}
 
 	r.POST("/v1/validators/add", server.handleAddValidator)
@@ -59,14 +63,14 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 
 	// TODO: use req.ValidatorPublicKey
 
-	sharePrivateKey, err := r.OperatorKeystore.PrivKey.Decrypt(req.EncryptedSharePrivateKey)
+	sharePrivateKey, err := r.OperatorPrivateKey.Decrypt(req.EncryptedSharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
 		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)
 		return
 	}
 
-	shareKeystore, shareKeystorePassword, err := r.OperatorKeystore.GenerateShareKeystore(sharePrivateKey)
+	shareKeystore, shareKeystorePassword, err := keys.GenerateShareKeystore(sharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to generate share keystore: %v", err)
@@ -146,7 +150,7 @@ type OperatorIdentityResponse struct {
 }
 
 func (r *Server) handleOperatorIdentity(ctx *fasthttp.RequestCtx) {
-	pubKeyB64, err := r.OperatorKeystore.PrivKey.Public().Base64()
+	pubKeyB64, err := r.OperatorPrivateKey.Public().Base64()
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to get public key base64: %v", err)
@@ -178,7 +182,7 @@ func (r *Server) handleSignOperator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	signature, err := r.OperatorKeystore.PrivKey.Sign(req.Payload)
+	signature, err := r.OperatorPrivateKey.Sign(req.Payload)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to sign message: %v", err)
