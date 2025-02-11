@@ -34,6 +34,7 @@ func New(logger *zap.Logger, baseURL string) (*Web3SignerClient, error) {
 // ImportKeystore adds a key to Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Keymanager/operation/KEYMANAGER_IMPORT
 func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) error {
 	logger := c.logger.With(zap.String("request", "ImportKeystore"))
+	logger.Info("importing keystore")
 
 	payload := ImportKeystoreRequest{
 		Keystores:          []string{keystore},
@@ -91,6 +92,7 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
 func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 	logger := c.logger.With(zap.String("request", "DeleteKeystore"))
+	logger.Info("deleting keystore")
 
 	payload := DeleteKeystoreRequest{
 		Pubkeys: []string{hex.EncodeToString(sharePubKey)},
@@ -144,6 +146,7 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 // Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
 func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
 	logger := c.logger.With(zap.String("request", "DeleteKeystore"))
+	logger.Info("signing keystore")
 
 	body, err := json.Marshal(payload)
 	if err != nil {
