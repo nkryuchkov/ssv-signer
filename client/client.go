@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -47,8 +48,9 @@ func (c *SSVSignerClient) AddValidator(encryptedShare, validatorPubKey []byte) e
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	return nil
@@ -70,8 +72,9 @@ func (c *SSVSignerClient) RemoveValidator(sharePubKey []byte) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < http.StatusOK {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	return nil
@@ -97,7 +100,8 @@ func (c *SSVSignerClient) Sign(sharePubKey []byte, payload web3signer.SignReques
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		respBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	var response struct {
@@ -120,7 +124,8 @@ func (c *SSVSignerClient) GetOperatorIdentity() (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		respBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	var result server.OperatorIdentityResponse
@@ -147,8 +152,9 @@ func (c *SSVSignerClient) OperatorSign(payload []byte) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	var result server.OperatorSignResponse
