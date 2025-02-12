@@ -152,7 +152,8 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 
 // Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
 func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
-	logger := c.logger.With(zap.String("request", "DeleteKeystore"))
+	sharePubKeyHex := "0x" + hex.EncodeToString(sharePubKey)
+	logger := c.logger.With(zap.String("request", "Sign"), zap.String("share_pubkey", sharePubKeyHex))
 	logger.Info("signing keystore")
 
 	body, err := json.Marshal(payload)
@@ -161,7 +162,7 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/eth/v1/eth2/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
+	url := fmt.Sprintf("%s/api/v1/eth2/sign/%s", c.baseURL, sharePubKeyHex)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		logger.Error("failed to create http request", zap.Error(err))
@@ -176,15 +177,18 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		logger.Error("sign request failed", zap.Int("status_code", resp.StatusCode))
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
-
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error("failed to read http response body", zap.Error(err))
 		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("sign request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.Any("response", string(respData)),
+			zap.Any("url", url))
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	logger.Info("sign status code ok", zap.Any("response", string(respData)))
