@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/fasthttp/router"
 	"github.com/ssvlabs/ssv-signer/keys"
@@ -119,10 +121,7 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 	_ = json.NewEncoder(ctx).Encode(RemoveValidatorResponse{})
 }
 
-type ValidatorSignRequest struct {
-	SharePublicKey []byte                 `json:"share_pubkey"`
-	Payload        web3signer.SignRequest `json:"payload"`
-}
+type ValidatorSignRequest = web3signer.SignRequest
 
 type ValidatorSignResponse struct {
 	Signature []byte `json:"signature"`
@@ -136,7 +135,21 @@ func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	sig, err := r.Web3SignerClient.Sign(req.SharePublicKey, req.Payload)
+	sharePubKeyHex, ok := ctx.UserValue("identifier").(string)
+	if !ok {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		fmt.Fprintf(ctx, "invalid share public key")
+		return
+	}
+
+	sharePubKey, err := hex.DecodeString(strings.TrimPrefix(sharePubKeyHex, "0x"))
+	if err != nil {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		fmt.Fprintf(ctx, "malformed share public key")
+		return
+	}
+
+	sig, err := r.Web3SignerClient.Sign(sharePubKey, req)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to sign with Web3Signer: %v", err)

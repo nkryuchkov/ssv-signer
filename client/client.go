@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -81,14 +82,9 @@ func (c *SSVSignerClient) RemoveValidator(sharePubKey []byte) error {
 }
 
 func (c *SSVSignerClient) Sign(sharePubKey []byte, payload web3signer.SignRequest) (string, error) {
-	url := fmt.Sprintf("%s/v1/validators/sign", c.baseURL)
+	url := fmt.Sprintf("%s/v1/validators/sign/%s", c.baseURL, hex.EncodeToString(sharePubKey))
 
-	requestBody := server.ValidatorSignRequest{
-		SharePublicKey: sharePubKey,
-		Payload:        payload,
-	}
-
-	data, err := json.Marshal(requestBody)
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
 	}

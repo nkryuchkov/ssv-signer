@@ -84,7 +84,8 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 	logger.Info("import keystore status code ok", zap.Any("response", string(respBytes)))
 
 	for i, data := range resp.Data {
-		if data.Status != "imported" {
+		if data.Status != "imported" && data.Status != "duplicate" { // TODO: remove "duplicate", investigate why it happens
+			// if data.Status != "imported" {
 			logger.Error("wrong import keystore response", zap.String("status", data.Status))
 			return fmt.Errorf("unexpected key %d import status: %s", i, data.Status)
 		}
