@@ -193,18 +193,9 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 
 	logger.Info("sign status code ok", zap.Any("response", string(respData)))
 
-	// TODO: check response format
-	var jsonResp struct {
-		Signature string `json:"signature"`
-	}
-	if err := json.Unmarshal(respData, &jsonResp); err != nil {
-		logger.Error("failed to unmarshal http response body", zap.String("body", string(respData)), zap.Error(err))
-		return nil, fmt.Errorf("unmarshal response: %w", err)
-	}
-
-	sigBytes, err := hex.DecodeString(jsonResp.Signature)
+	sigBytes, err := hex.DecodeString(strings.TrimPrefix(string(respData), "0x"))
 	if err != nil {
-		logger.Error("failed to decode signature", zap.String("signature", jsonResp.Signature), zap.Error(err))
+		logger.Error("failed to decode signature", zap.String("signature", string(respData)), zap.Error(err))
 		return nil, fmt.Errorf("decode signature: %w", err)
 	}
 
