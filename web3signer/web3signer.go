@@ -48,6 +48,8 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
+	c.logger.Info("sending import keystore request", zap.String("keystore", keystore))
+
 	url := fmt.Sprintf("%s/eth/v1/keystores", c.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -78,6 +80,8 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 		logger.Error("failed to import keystore", zap.Int("status_code", httpResp.StatusCode))
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
+
+	logger.Info("import keystore status code ok", zap.Any("response", string(respBytes)))
 
 	for i, data := range resp.Data {
 		if data.Status != "imported" {
@@ -133,6 +137,8 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
 
+	logger.Info("delete keystore status code ok", zap.Any("response", string(respBytes)))
+
 	for i, data := range resp.Data {
 		if data.Status != "deleted" {
 			logger.Error("wrong delete keystore response", zap.String("status", data.Status))
@@ -179,6 +185,8 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 		logger.Error("failed to read http response body", zap.Error(err))
 		return nil, fmt.Errorf("read response body: %w", err)
 	}
+
+	logger.Info("sign status code ok", zap.Any("response", string(respData)))
 
 	// TODO: check response format
 	var jsonResp struct {

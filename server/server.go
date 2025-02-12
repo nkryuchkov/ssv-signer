@@ -70,6 +70,9 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	r.Logger.Info("share private key",
+		zap.String("sk", string(sharePrivateKey)))
+
 	shareKeystore, shareKeystorePassword, err := keys.GenerateShareKeystore(sharePrivateKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
