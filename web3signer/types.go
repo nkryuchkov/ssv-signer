@@ -1,6 +1,8 @@
 package web3signer
 
 import (
+	"github.com/attestantio/go-eth2-client/api/v1"
+	"github.com/attestantio/go-eth2-client/spec/altair"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 )
 
@@ -32,9 +34,28 @@ type KeyManagerResponseData struct {
 
 type SignRequest struct {
 	ForkInfo    ForkInfo                `json:"fork_info"`
-	SigningRoot string                  `json:"signingRoot,omitempty"`
+	SigningRoot string                  `json:"signing_root,omitempty"`
 	Type        SignedObjectType        `json:"type"`
 	Attestation *phase0.AttestationData `json:"attestation,omitempty"`
+	BeaconBlock *struct {
+		Version     string                    `json:"version"`
+		BlockHeader *phase0.BeaconBlockHeader `json:"block_header"`
+	} `json:"beacon_block,omitempty"`
+	VoluntaryExit     *phase0.VoluntaryExit     `json:"voluntary_exit,omitempty"`
+	AggregateAndProof *phase0.AggregateAndProof `json:"aggregate_and_proof,omitempty"`
+	AggregationSlot   *struct {
+		Slot phase0.Slot `json:"slot"`
+	} `json:"aggregation_slot,omitempty"`
+	RandaoReveal *struct {
+		Epoch phase0.Epoch `json:"epoch"`
+	} `json:"randao_reveal"`
+	SyncCommitteeMessage *struct {
+		BeaconBlockRoot phase0.Root `json:"beacon_block_root"`
+		Slot            phase0.Slot `json:"slot"`
+	} `json:"sync_committee_message,omitempty"`
+	SyncAggregatorSelectionData *altair.SyncAggregatorSelectionData `json:"sync_aggregator_selection_data,omitempty"`
+	ContributionAndProof        *altair.ContributionAndProof        `json:"contribution_and_proof,omitempty"`
+	ValidatorRegistration       *v1.ValidatorRegistration           `json:"validator_registration,omitempty"`
 }
 
 type ForkInfo struct {

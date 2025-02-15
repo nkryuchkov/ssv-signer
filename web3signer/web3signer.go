@@ -77,6 +77,7 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
+		// TODO: handle all possible codes
 		logger.Error("failed to import keystore", zap.Int("status_code", httpResp.StatusCode))
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
@@ -134,6 +135,7 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
+		// TODO: handle all possible codes
 		logger.Error("failed to delete keystore", zap.Int("status_code", httpResp.StatusCode))
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
@@ -184,6 +186,7 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		// TODO: handle all possible codes
 		logger.Error("sign request failed",
 			zap.Int("status_code", resp.StatusCode),
 			zap.Any("response", string(respData)),
