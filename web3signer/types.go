@@ -48,7 +48,7 @@ type SignRequest struct {
 	} `json:"aggregation_slot,omitempty"`
 	RandaoReveal *struct {
 		Epoch phase0.Epoch `json:"epoch"`
-	} `json:"randao_reveal"`
+	} `json:"randao_reveal,omitempty"`
 	SyncCommitteeMessage *struct {
 		BeaconBlockRoot phase0.Root `json:"beacon_block_root"`
 		Slot            phase0.Slot `json:"slot"`
