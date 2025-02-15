@@ -155,7 +155,11 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 // Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
 func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
 	sharePubKeyHex := "0x" + hex.EncodeToString(sharePubKey)
-	logger := c.logger.With(zap.String("request", "Sign"), zap.String("share_pubkey", sharePubKeyHex))
+	logger := c.logger.With(
+		zap.String("request", "Sign"),
+		zap.String("share_pubkey", sharePubKeyHex),
+		zap.String("type", string(payload.Type)),
+	)
 	logger.Info("signing keystore")
 
 	body, err := json.Marshal(payload)
@@ -190,6 +194,7 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 		logger.Error("sign request failed",
 			zap.Int("status_code", resp.StatusCode),
 			zap.Any("response", string(respData)),
+			zap.Any("request", string(body)),
 			zap.Any("url", url))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
