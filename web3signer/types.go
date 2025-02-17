@@ -54,8 +54,8 @@ type SignRequest struct {
 		Slot            phase0.Slot `json:"slot"`
 	} `json:"sync_committee_message,omitempty"`
 	SyncAggregatorSelectionData *struct {
-		Slot              phase0.Slot `json:"slot"`
-		SubcommitteeIndex uint64      `json:"subcommittee_index"`
+		Slot              phase0.Slot           `json:"slot"`
+		SubcommitteeIndex phase0.CommitteeIndex `json:"subcommittee_index"` // phase0.CommitteeIndex type to marshal to string
 	} `json:"sync_aggregator_selection_data,omitempty"`
 	ContributionAndProof  *altair.ContributionAndProof `json:"contribution_and_proof,omitempty"`
 	ValidatorRegistration *v1.ValidatorRegistration    `json:"validator_registration,omitempty"`
