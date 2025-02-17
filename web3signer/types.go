@@ -78,14 +78,14 @@ const (
 	AggregationSlot                   SignedObjectType = "AGGREGATION_SLOT"                      // ok
 	AggregateAndProof                 SignedObjectType = "AGGREGATE_AND_PROOF"                   // ok
 	Attestation                       SignedObjectType = "ATTESTATION"                           // ok
-	Block                             SignedObjectType = "BLOCK"                                 // not tested
+	Block                             SignedObjectType = "BLOCK"                                 // not tested, not used
 	BlockV2                           SignedObjectType = "BLOCK_V2"                              // ok
 	Deposit                           SignedObjectType = "DEPOSIT"                               // not tested
 	RandaoReveal                      SignedObjectType = "RANDAO_REVEAL"                         // ok
 	VoluntaryExit                     SignedObjectType = "VOLUNTARY_EXIT"                        // not tested
 	SyncCommitteeMessage              SignedObjectType = "SYNC_COMMITTEE_MESSAGE"                // failed
-	SyncCommitteeSelectionProof       SignedObjectType = "SYNC_COMMITTEE_SELECTION_PROOF"        // failed
-	SyncCommitteeContributionAndProof SignedObjectType = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF" // failed
+	SyncCommitteeSelectionProof       SignedObjectType = "SYNC_COMMITTEE_SELECTION_PROOF"        // ok
+	SyncCommitteeContributionAndProof SignedObjectType = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF" // ok
 	ValidatorRegistration             SignedObjectType = "VALIDATOR_REGISTRATION"                // ok
 )
 

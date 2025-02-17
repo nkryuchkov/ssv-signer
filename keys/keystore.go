@@ -58,7 +58,7 @@ func GenerateShareKeystore(sharePrivateKey []byte) (string, string, error) {
 	serializedSharePubKey := sharePubKey.Serialize()
 	sharePubKeyHex := "0x" + hex.EncodeToString(serializedSharePubKey[:])
 
-	passphrase := "" // TODO: set passphrase
+	passphrase := "password" // TODO: set non-empty passphrase (empty password will cause failure to open keystore)
 	keystoreCrypto, err := keystorev4.New().Encrypt(sharePrivateKeyBytes, passphrase)
 	if err != nil {
 		return "", "", fmt.Errorf("encrypt private key: %w", err)
