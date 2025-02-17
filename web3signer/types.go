@@ -53,9 +53,12 @@ type SignRequest struct {
 		BeaconBlockRoot phase0.Root `json:"beacon_block_root"`
 		Slot            phase0.Slot `json:"slot"`
 	} `json:"sync_committee_message,omitempty"`
-	SyncAggregatorSelectionData *altair.SyncAggregatorSelectionData `json:"sync_aggregator_selection_data,omitempty"`
-	ContributionAndProof        *altair.ContributionAndProof        `json:"contribution_and_proof,omitempty"`
-	ValidatorRegistration       *v1.ValidatorRegistration           `json:"validator_registration,omitempty"`
+	SyncAggregatorSelectionData *struct {
+		Slot              phase0.Slot `json:"slot"`
+		SubcommitteeIndex uint64      `json:"subcommittee_index"`
+	} `json:"sync_aggregator_selection_data,omitempty"`
+	ContributionAndProof  *altair.ContributionAndProof `json:"contribution_and_proof,omitempty"`
+	ValidatorRegistration *v1.ValidatorRegistration    `json:"validator_registration,omitempty"`
 }
 
 type ForkInfo struct {
@@ -72,18 +75,18 @@ type ForkType struct {
 type SignedObjectType string
 
 const (
-	AggregationSlot                   SignedObjectType = "AGGREGATION_SLOT"
-	AggregateAndProof                 SignedObjectType = "AGGREGATE_AND_PROOF"
-	Attestation                       SignedObjectType = "ATTESTATION"
-	Block                             SignedObjectType = "BLOCK"
-	BlockV2                           SignedObjectType = "BLOCK_V2"
-	Deposit                           SignedObjectType = "DEPOSIT"
-	RandaoReveal                      SignedObjectType = "RANDAO_REVEAL"
-	VoluntaryExit                     SignedObjectType = "VOLUNTARY_EXIT"
-	SyncCommitteeMessage              SignedObjectType = "SYNC_COMMITTEE_MESSAGE"
-	SyncCommitteeSelectionProof       SignedObjectType = "SYNC_COMMITTEE_SELECTION_PROOF"
-	SyncCommitteeContributionAndProof SignedObjectType = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF"
-	ValidatorRegistration             SignedObjectType = "VALIDATOR_REGISTRATION"
+	AggregationSlot                   SignedObjectType = "AGGREGATION_SLOT"                      // ok
+	AggregateAndProof                 SignedObjectType = "AGGREGATE_AND_PROOF"                   // ok
+	Attestation                       SignedObjectType = "ATTESTATION"                           // ok
+	Block                             SignedObjectType = "BLOCK"                                 // not tested
+	BlockV2                           SignedObjectType = "BLOCK_V2"                              // ok
+	Deposit                           SignedObjectType = "DEPOSIT"                               // not tested
+	RandaoReveal                      SignedObjectType = "RANDAO_REVEAL"                         // ok
+	VoluntaryExit                     SignedObjectType = "VOLUNTARY_EXIT"                        // not tested
+	SyncCommitteeMessage              SignedObjectType = "SYNC_COMMITTEE_MESSAGE"                // failed
+	SyncCommitteeSelectionProof       SignedObjectType = "SYNC_COMMITTEE_SELECTION_PROOF"        // failed
+	SyncCommitteeContributionAndProof SignedObjectType = "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF" // failed
+	ValidatorRegistration             SignedObjectType = "VALIDATOR_REGISTRATION"                // ok
 )
 
 type SignResponse struct {
