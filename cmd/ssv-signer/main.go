@@ -12,12 +12,12 @@ import (
 )
 
 type CLI struct {
-	ListenAddr              string `env:"LISTEN_ADDR" default:":8080"`
+	ListenAddr              string `env:"LISTEN_ADDR" default:":8080"` // TODO: finalize port
 	Web3SignerEndpoint      string `env:"WEB3SIGNER_ENDPOINT"`
 	PrivateKey              string `env:"PRIVATE_KEY"`
 	PrivateKeyFile          string `env:"PRIVATE_KEY_FILE"`
 	PasswordFile            string `env:"PASSWORD_FILE"`
-	ShareKeystorePassphrase string `env:"SHARE_KEYSTORE_PASSPHRASE" default:"password"`
+	ShareKeystorePassphrase string `env:"SHARE_KEYSTORE_PASSPHRASE" default:"password"` // TODO: finalize default password
 }
 
 func main() {
