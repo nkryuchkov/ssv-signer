@@ -51,20 +51,15 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 	return r.router.Handler
 }
 
-type AddValidatorRequest struct {
-	EncryptedSharePrivateKey []byte `json:"encrypted_share_privkey"`
-	ValidatorPublicKey       []byte `json:"validator_pubkey"` // TODO: do we need it?
-}
-
 func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
-	var req AddValidatorRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+	encryptedSharePrivKey := ctx.PostBody()
+	if len(encryptedSharePrivKey) == 0 {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid request body: %v", err)
+		ctx.WriteString("share private key not provided")
 		return
 	}
 
-	sharePrivateKey, err := r.operatorPrivKey.Decrypt(req.EncryptedSharePrivateKey)
+	sharePrivateKey, err := r.operatorPrivKey.Decrypt(encryptedSharePrivKey)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusUnauthorized)
 		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)

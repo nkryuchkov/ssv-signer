@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ssvlabs/ssv-signer/server"
 	"github.com/ssvlabs/ssv-signer/web3signer"
 )
 
@@ -33,20 +32,10 @@ func New(baseURL string) *SSVSignerClient {
 	}
 }
 
-func (c *SSVSignerClient) AddValidator(encryptedShare, validatorPubKey []byte) error {
+func (c *SSVSignerClient) AddValidator(encryptedShare []byte) error {
 	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
 
-	requestBody := server.AddValidatorRequest{
-		EncryptedSharePrivateKey: encryptedShare,
-		ValidatorPublicKey:       validatorPubKey,
-	}
-
-	data, err := json.Marshal(requestBody)
-	if err != nil {
-		return fmt.Errorf("marshal request: %w", err)
-	}
-
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(data))
+	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(encryptedShare))
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
