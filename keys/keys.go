@@ -10,6 +10,9 @@ import (
 	"fmt"
 )
 
+// Content of this file is copied from https://github.com/ssvlabs/ssv/blob/e12abf7dfbbd068b99612fa2ebbe7e3372e57280/operator/keys/keys.go#L14
+// to avoid using CGO because ssv-node requires it.
+
 type OperatorPublicKey interface {
 	Encrypt(data []byte) ([]byte, error)
 	Verify(data []byte, signature []byte) error
@@ -56,26 +59,12 @@ func PrivateKeyFromBytes(pemData []byte) (OperatorPrivateKey, error) {
 	return &privateKey{privKey: privKey}, nil
 }
 
-func GeneratePrivateKey() (OperatorPrivateKey, error) {
-	const keySize = 2048
-
-	privKey, err := rsa.GenerateKey(crand.Reader, keySize)
-	if err != nil {
-		return nil, err
-	}
-
-	return &privateKey{privKey: privKey}, nil
-}
-
 func (p *privateKey) Sign(data []byte) ([]byte, error) {
 	hash := sha256.Sum256(data)
 	signature, err := SignRSA(p, hash[:])
 	if err != nil {
 		return []byte{}, err
 	}
-
-	// var sig [256]byte
-	// copy(sig[:], signature)
 
 	return signature, nil
 }

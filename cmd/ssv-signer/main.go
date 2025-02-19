@@ -12,11 +12,12 @@ import (
 )
 
 type CLI struct {
-	ListenAddr         string `env:"LISTEN_ADDR" default:":8080"`
-	Web3SignerEndpoint string `env:"WEB3SIGNER_ENDPOINT"`
-	PrivateKey         string `env:"PRIVATE_KEY"`
-	PrivateKeyFile     string `env:"PRIVATE_KEY_FILE"`
-	PasswordFile       string `env:"PASSWORD_FILE"`
+	ListenAddr              string `env:"LISTEN_ADDR" default:":8080"`
+	Web3SignerEndpoint      string `env:"WEB3SIGNER_ENDPOINT"`
+	PrivateKey              string `env:"PRIVATE_KEY"`
+	PrivateKeyFile          string `env:"PRIVATE_KEY_FILE"`
+	PasswordFile            string `env:"PASSWORD_FILE"`
+	ShareKeystorePassphrase string `env:"SHARE_KEYSTORE_PASSPHRASE" default:"password"`
 }
 
 func main() {
@@ -35,6 +36,7 @@ func main() {
 		zap.String("private_key_file", cli.PrivateKeyFile),
 		zap.String("password_file", cli.PasswordFile),
 		zap.Bool("got_private_key", cli.PrivateKey != ""),
+		zap.Bool("got_share_keystore_passphrase", cli.ShareKeystorePassphrase != ""),
 	)
 
 	if cli.PrivateKey == "" && cli.PrivateKeyFile == "" {
@@ -43,6 +45,10 @@ func main() {
 
 	if cli.PrivateKey != "" && cli.PrivateKeyFile != "" {
 		logger.Fatal("either private key or private key file must be set, found both")
+	}
+
+	if cli.ShareKeystorePassphrase == "" {
+		logger.Fatal("share keystore passphrase must not be empty")
 	}
 
 	var operatorPrivateKey keys.OperatorPrivateKey
@@ -65,7 +71,7 @@ func main() {
 
 	logger.Info("Starting ssv-signer server", zap.String("addr", cli.ListenAddr))
 
-	srv := server.New(logger, operatorPrivateKey, web3SignerClient)
+	srv := server.New(logger, operatorPrivateKey, web3SignerClient, cli.ShareKeystorePassphrase)
 	if err := fasthttp.ListenAndServe(cli.ListenAddr, srv.Handler()); err != nil {
 		logger.Fatal("failed to start server", zap.Error(err))
 	}

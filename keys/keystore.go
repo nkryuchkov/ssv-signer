@@ -37,7 +37,7 @@ func LoadOperatorKeystore(encryptedPrivateKeyFile, passwordFile string) (Operato
 	return operatorPrivKey, nil
 }
 
-func GenerateShareKeystore(sharePrivateKey []byte) (string, string, error) {
+func GenerateShareKeystore(sharePrivateKey []byte, passphrase string) (string, string, error) {
 	sharePrivateKeyBytes, err := hex.DecodeString(strings.TrimPrefix(string(sharePrivateKey), "0x"))
 	if err != nil {
 		return "", "", fmt.Errorf("could not decode share private key %s: %w", string(sharePrivateKey), err)
@@ -58,7 +58,6 @@ func GenerateShareKeystore(sharePrivateKey []byte) (string, string, error) {
 	serializedSharePubKey := sharePubKey.Serialize()
 	sharePubKeyHex := "0x" + hex.EncodeToString(serializedSharePubKey[:])
 
-	passphrase := "password" // TODO: set non-empty passphrase (empty password will cause failure to open keystore)
 	keystoreCrypto, err := keystorev4.New().Encrypt(sharePrivateKeyBytes, passphrase)
 	if err != nil {
 		return "", "", fmt.Errorf("encrypt private key: %w", err)
@@ -99,26 +98,4 @@ func DecryptKeystore(encryptedJSONData []byte, password string) ([]byte, error) 
 	}
 
 	return decryptedBytes, nil
-}
-
-// EncryptKeystore encrypts a private key using the provided password, adds in the public key and returns the encrypted keystore JSON data.
-func EncryptKeystore(privkey []byte, pubKeyBase64, password string) ([]byte, error) {
-	if strings.TrimSpace(password) == "" {
-		return nil, fmt.Errorf("Password required for encrypting keystore")
-	}
-
-	// Encrypt the private key using keystorev4
-	encryptedKeystoreJSON, err := keystorev4.New().Encrypt(privkey, password)
-	if err != nil {
-		return nil, fmt.Errorf("encrypt private key: %w", err)
-	}
-
-	encryptedKeystoreJSON["pubKey"] = pubKeyBase64
-
-	encryptedData, err := json.Marshal(encryptedKeystoreJSON)
-	if err != nil {
-		return nil, fmt.Errorf("marshal encrypted keystore: %w", err)
-	}
-
-	return encryptedData, nil
 }

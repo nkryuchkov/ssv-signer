@@ -17,38 +17,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var keySize = 2048
-
-// GenerateKeys using rsa random generate keys and return []byte bas64
-func GenerateKeys() ([]byte, []byte, error) {
-	// generate random private key (secret)
-	sk, err := rsa.GenerateKey(rand.Reader, keySize)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "Failed to generate rsa key")
-	}
-	// retrieve public key from the newly generated secret
-	pk := &sk.PublicKey
-
-	// convert to bytes
-	skPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(sk),
-		},
-	)
-	pkBytes, err := x509.MarshalPKIXPublicKey(pk)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "Failed to marshal public key")
-	}
-	pkPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: pkBytes,
-		},
-	)
-	return pkPem, skPem, nil
-}
-
 // DecodeKey with secret key (rsa) and hash (base64), return the decrypted key
 func DecodeKey(sk *rsa.PrivateKey, hash []byte) ([]byte, error) {
 	decryptedKey, err := rsa.DecryptPKCS1v15(rand.Reader, sk, hash)

@@ -13,16 +13,16 @@ import (
 	"go.uber.org/zap"
 )
 
-type Web3SignerClient struct {
+type Web3Signer struct {
 	logger     *zap.Logger
 	baseURL    string
 	httpClient *http.Client
 }
 
-func New(logger *zap.Logger, baseURL string) (*Web3SignerClient, error) {
+func New(logger *zap.Logger, baseURL string) (*Web3Signer, error) {
 	baseURL = strings.TrimRight(baseURL, "/")
 
-	return &Web3SignerClient{
+	return &Web3Signer{
 		logger:  logger,
 		baseURL: baseURL,
 		httpClient: &http.Client{
@@ -32,7 +32,7 @@ func New(logger *zap.Logger, baseURL string) (*Web3SignerClient, error) {
 }
 
 // ImportKeystore adds a key to Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Keymanager/operation/KEYMANAGER_IMPORT
-func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) error {
+func (c *Web3Signer) ImportKeystore(keystore, keystorePassword string) error {
 	logger := c.logger.With(zap.String("request", "ImportKeystore"))
 	logger.Info("importing keystore")
 
@@ -77,16 +77,16 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		// TODO: handle all possible codes
-		logger.Error("failed to import keystore", zap.Int("status_code", httpResp.StatusCode))
+		logger.Error("failed to import keystore",
+			zap.Int("status_code", httpResp.StatusCode),
+			zap.String("message", resp.Message))
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
 
 	logger.Info("import keystore status code ok", zap.Any("response", string(respBytes)))
 
 	for i, data := range resp.Data {
-		if data.Status != "imported" && data.Status != "duplicate" { // TODO: remove "duplicate", investigate why it happens
-			// if data.Status != "imported" {
+		if data.Status != "imported" && data.Status != "duplicate" { // If several ssv-signer instances use the same web3signer instance, keystore may be already added
 			logger.Error("wrong import keystore response", zap.String("status", data.Status))
 			return fmt.Errorf("unexpected key %d import status: %s", i, data.Status)
 		}
@@ -96,7 +96,7 @@ func (c *Web3SignerClient) ImportKeystore(keystore, keystorePassword string) err
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
+func (c *Web3Signer) DeleteKeystore(sharePubKey []byte) error {
 	logger := c.logger.With(zap.String("request", "DeleteKeystore"))
 	logger.Info("deleting keystore")
 
@@ -135,8 +135,9 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		// TODO: handle all possible codes
-		logger.Error("failed to delete keystore", zap.Int("status_code", httpResp.StatusCode))
+		logger.Error("failed to delete keystore",
+			zap.Int("status_code", httpResp.StatusCode),
+			zap.String("message", resp.Message))
 		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
 
@@ -153,7 +154,7 @@ func (c *Web3SignerClient) DeleteKeystore(sharePubKey []byte) error {
 }
 
 // Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
-func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
+func (c *Web3Signer) Sign(sharePubKey []byte, payload SignRequest) ([]byte, error) {
 	sharePubKeyHex := "0x" + hex.EncodeToString(sharePubKey)
 	logger := c.logger.With(
 		zap.String("request", "Sign"),
@@ -190,7 +191,6 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// TODO: handle all possible codes
 		logger.Error("sign request failed",
 			zap.Int("status_code", resp.StatusCode),
 			zap.Any("response", string(respData)),
@@ -198,8 +198,6 @@ func (c *Web3SignerClient) Sign(sharePubKey []byte, payload SignRequest) ([]byte
 			zap.Any("url", url))
 		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
-
-	logger.Info("sign status code ok", zap.Any("response", string(respData)))
 
 	sigBytes, err := hex.DecodeString(strings.TrimPrefix(string(respData), "0x"))
 	if err != nil {

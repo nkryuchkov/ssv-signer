@@ -14,24 +14,27 @@ import (
 )
 
 type Server struct {
-	Logger             *zap.Logger
-	OperatorPrivateKey keys.OperatorPrivateKey
-	Web3SignerClient   web3signer.Interface
-	Router             *router.Router
+	logger          *zap.Logger
+	operatorPrivKey keys.OperatorPrivateKey
+	web3Signer      *web3signer.Web3Signer
+	router          *router.Router
+	keystorePasswd  string
 }
 
 func New(
 	logger *zap.Logger,
-	operatorPrivateKey keys.OperatorPrivateKey,
-	web3SignerClient web3signer.Interface,
+	operatorPrivKey keys.OperatorPrivateKey,
+	web3Signer *web3signer.Web3Signer,
+	keystorePasswd string,
 ) *Server {
 	r := router.New()
 
 	server := &Server{
-		Logger:             logger,
-		OperatorPrivateKey: operatorPrivateKey,
-		Web3SignerClient:   web3SignerClient,
-		Router:             r,
+		logger:          logger,
+		operatorPrivKey: operatorPrivKey,
+		web3Signer:      web3Signer,
+		router:          r,
+		keystorePasswd:  keystorePasswd,
 	}
 
 	r.POST("/v1/validators/add", server.handleAddValidator)
@@ -45,15 +48,13 @@ func New(
 }
 
 func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
-	return r.Router.Handler
+	return r.router.Handler
 }
 
 type AddValidatorRequest struct {
 	EncryptedSharePrivateKey []byte `json:"encrypted_share_privkey"`
-	ValidatorPublicKey       []byte `json:"validator_pubkey"`
+	ValidatorPublicKey       []byte `json:"validator_pubkey"` // TODO: do we need it?
 }
-
-type AddValidatorResponse struct{}
 
 func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 	var req AddValidatorRequest
@@ -63,26 +64,21 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// TODO: use req.ValidatorPublicKey
-
-	sharePrivateKey, err := r.OperatorPrivateKey.Decrypt(req.EncryptedSharePrivateKey)
+	sharePrivateKey, err := r.operatorPrivKey.Decrypt(req.EncryptedSharePrivateKey)
 	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		ctx.SetStatusCode(fasthttp.StatusUnauthorized)
 		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)
 		return
 	}
 
-	r.Logger.Info("share private key",
-		zap.String("sk", string(sharePrivateKey)))
-
-	shareKeystore, shareKeystorePassword, err := keys.GenerateShareKeystore(sharePrivateKey)
+	shareKeystore, shareKeystorePassword, err := keys.GenerateShareKeystore(sharePrivateKey, r.keystorePasswd)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to generate share keystore: %v", err)
 		return
 	}
 
-	err = r.Web3SignerClient.ImportKeystore(shareKeystore, shareKeystorePassword)
+	err = r.web3Signer.ImportKeystore(shareKeystore, shareKeystorePassword)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to import share to Web3Signer: %v", err)
@@ -91,26 +87,17 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	_ = json.NewEncoder(ctx).Encode(map[string]string{
-		"status": "ok",
-	})
 }
-
-type RemoveValidatorRequest struct {
-	SharePublicKey []byte `json:"share_pubkey"`
-}
-
-type RemoveValidatorResponse struct{}
 
 func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
-	var req RemoveValidatorRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+	sharePublicKey := ctx.PostBody()
+	if len(sharePublicKey) != 48 {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid request body: %v", err)
+		fmt.Fprintf(ctx, "invalid share public key length, expected 48, got %v", len(sharePublicKey))
 		return
 	}
 
-	if err := r.Web3SignerClient.DeleteKeystore(req.SharePublicKey); err != nil {
+	if err := r.web3Signer.DeleteKeystore(sharePublicKey); err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to remove share from Web3Signer: %v", err)
 		return
@@ -118,17 +105,10 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	_ = json.NewEncoder(ctx).Encode(RemoveValidatorResponse{})
-}
-
-type ValidatorSignRequest = web3signer.SignRequest
-
-type ValidatorSignResponse struct {
-	Signature []byte `json:"signature"`
 }
 
 func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {
-	var req ValidatorSignRequest
+	var req web3signer.SignRequest
 	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
 		fmt.Fprintf(ctx, "invalid request body: %v", err)
@@ -149,7 +129,7 @@ func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	sig, err := r.Web3SignerClient.Sign(sharePubKey, req)
+	sig, err := r.web3Signer.Sign(sharePubKey, req)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to sign with Web3Signer: %v", err)
@@ -158,47 +138,26 @@ func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	_ = json.NewEncoder(ctx).Encode(ValidatorSignResponse{Signature: sig})
-}
-
-type OperatorIdentityResponse struct {
-	PublicKey string `json:"public_key"`
+	ctx.Write(sig)
 }
 
 func (r *Server) handleOperatorIdentity(ctx *fasthttp.RequestCtx) {
-	pubKeyB64, err := r.OperatorPrivateKey.Public().Base64()
+	pubKeyB64, err := r.operatorPrivKey.Public().Base64()
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to get public key base64: %v", err)
 		return
 	}
 
-	resp := OperatorIdentityResponse{
-		PublicKey: string(pubKeyB64),
-	}
-
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	_ = json.NewEncoder(ctx).Encode(resp)
-}
-
-type OperatorSignRequest struct {
-	Payload []byte `json:"payload"`
-}
-
-type OperatorSignResponse struct {
-	Signature []byte `json:"signature"`
+	ctx.Write(pubKeyB64)
 }
 
 func (r *Server) handleSignOperator(ctx *fasthttp.RequestCtx) {
-	var req OperatorSignRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid request body: %v", err)
-		return
-	}
+	payload := ctx.PostBody()
 
-	signature, err := r.OperatorPrivateKey.Sign(req.Payload)
+	signature, err := r.operatorPrivKey.Sign(payload)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to sign message: %v", err)
@@ -207,5 +166,5 @@ func (r *Server) handleSignOperator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	_ = json.NewEncoder(ctx).Encode(OperatorSignResponse{Signature: signature})
+	ctx.Write(signature)
 }

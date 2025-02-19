@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"github.com/ssvlabs/ssv-signer/server"
 	"github.com/ssvlabs/ssv-signer/web3signer"
 )
+
+type ShareDecryptionError error
 
 type SSVSignerClient struct {
 	baseURL    string
@@ -51,6 +54,9 @@ func (c *SSVSignerClient) AddValidator(encryptedShare, validatorPubKey []byte) e
 
 	if resp.StatusCode != http.StatusOK {
 		respBytes, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusUnauthorized {
+			return ShareDecryptionError(errors.New(string(respBytes)))
+		}
 		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
@@ -60,14 +66,7 @@ func (c *SSVSignerClient) AddValidator(encryptedShare, validatorPubKey []byte) e
 func (c *SSVSignerClient) RemoveValidator(sharePubKey []byte) error {
 	url := fmt.Sprintf("%s/v1/validators/remove", c.baseURL)
 
-	requestBody := server.RemoveValidatorRequest{SharePublicKey: sharePubKey}
-
-	data, err := json.Marshal(requestBody)
-	if err != nil {
-		return fmt.Errorf("marshal request: %w", err)
-	}
-
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(data))
+	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(sharePubKey))
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -100,12 +99,12 @@ func (c *SSVSignerClient) Sign(sharePubKey []byte, payload web3signer.SignReques
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
-	var response server.ValidatorSignResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	signature, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	return response.Signature, nil
+	return signature, nil
 }
 
 func (c *SSVSignerClient) GetOperatorIdentity() (string, error) {
@@ -122,25 +121,18 @@ func (c *SSVSignerClient) GetOperatorIdentity() (string, error) {
 		return "", fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
-	var result server.OperatorIdentityResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decode operator identity: %w", err)
+	publicKey, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
 	}
 
-	return result.PublicKey, nil
+	return string(publicKey), nil
 }
 
 func (c *SSVSignerClient) OperatorSign(payload []byte) ([]byte, error) {
 	url := fmt.Sprintf("%s/v1/operator/sign", c.baseURL)
 
-	requestBody := server.OperatorSignRequest{Payload: payload}
-
-	data, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(data))
+	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -151,10 +143,10 @@ func (c *SSVSignerClient) OperatorSign(payload []byte) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
 	}
 
-	var result server.OperatorSignResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	signature, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	return result.Signature, nil
+	return signature, nil
 }
