@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ssvlabs/ssv-signer/server"
 	"github.com/ssvlabs/ssv-signer/web3signer"
 )
+
+type Status = server.Status
 
 type ShareDecryptionError error
 
@@ -32,41 +35,93 @@ func New(baseURL string) *SSVSignerClient {
 	}
 }
 
-func (c *SSVSignerClient) AddValidator(encryptedShare []byte) error {
-	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
+func (c *SSVSignerClient) AddValidators(encryptedPrivKeys ...[]byte) ([]Status, error) {
+	privKeyStrs := make([]string, 0, len(encryptedPrivKeys))
+	for _, privKey := range encryptedPrivKeys {
+		privKeyStrs = append(privKeyStrs, hex.EncodeToString(privKey))
+	}
 
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(encryptedShare))
+	req := server.AddValidatorRequest{
+		EncryptedSharePrivateKeys: privKeyStrs,
+	}
+
+	reqBytes, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		respBytes, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusUnauthorized {
-			return ShareDecryptionError(errors.New(string(respBytes)))
+	url := fmt.Sprintf("%s/v1/validators/add", c.baseURL)
+	httpResp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(reqBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	respBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		if httpResp.StatusCode == http.StatusUnauthorized {
+			return nil, ShareDecryptionError(errors.New(string(respBytes)))
 		}
-		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
+		return nil, fmt.Errorf("unexpected status code %d: %s", httpResp.StatusCode, string(respBytes))
 	}
 
-	return nil
+	var resp server.AddValidatorResponse
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal response body: %w", err)
+	}
+
+	if len(resp.Statuses) != len(encryptedPrivKeys) {
+		return nil, fmt.Errorf("unexpected statuses length, got %d, expected %d", len(resp.Statuses), len(encryptedPrivKeys))
+	}
+
+	return resp.Statuses, nil
 }
 
-func (c *SSVSignerClient) RemoveValidator(sharePubKey []byte) error {
-	url := fmt.Sprintf("%s/v1/validators/remove", c.baseURL)
+func (c *SSVSignerClient) RemoveValidator(sharePubKeys ...[]byte) ([]Status, error) {
+	pubKeyStrs := make([]string, 0, len(sharePubKeys))
+	for _, pubKey := range sharePubKeys {
+		pubKeyStrs = append(pubKeyStrs, hex.EncodeToString(pubKey))
+	}
 
-	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(sharePubKey))
+	req := server.RemoveValidatorRequest{
+		PublicKeys: pubKeyStrs,
+	}
+
+	reqBytes, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBytes))
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	return nil
+	url := fmt.Sprintf("%s/v1/validators/remove", c.baseURL)
+	httpResp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(reqBytes))
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer httpResp.Body.Close()
+
+	respBytes, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if httpResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code %d: %s", httpResp.StatusCode, string(respBytes))
+	}
+
+	var resp server.AddValidatorResponse
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal response body: %w", err)
+	}
+
+	if len(resp.Statuses) != len(sharePubKeys) {
+		return nil, fmt.Errorf("unexpected statuses length, got %d, expected %d", len(resp.Statuses), len(sharePubKeys))
+	}
+
+	return resp.Statuses, nil
 }
 
 func (c *SSVSignerClient) Sign(sharePubKey []byte, payload web3signer.SignRequest) ([]byte, error) {

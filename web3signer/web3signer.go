@@ -32,102 +32,98 @@ func New(logger *zap.Logger, baseURL string) (*Web3Signer, error) {
 }
 
 // ImportKeystore adds a key to Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Keymanager/operation/KEYMANAGER_IMPORT
-func (c *Web3Signer) ImportKeystore(keystore, keystorePassword string) error {
-	logger := c.logger.With(zap.String("request", "ImportKeystore"))
-	logger.Info("importing keystore")
+func (c *Web3Signer) ImportKeystore(keystoreList, keystorePasswordList []string) ([]string, error) {
+	logger := c.logger.With(zap.String("request", "ImportKeystore"), zap.Int("count", len(keystoreList)))
+	logger.Info("importing keystores")
 
 	payload := ImportKeystoreRequest{
-		Keystores:          []string{keystore},
-		Passwords:          []string{keystorePassword},
+		Keystores:          keystoreList,
+		Passwords:          keystorePasswordList,
 		SlashingProtection: "", // TODO
 	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
 		logger.Error("failed to marshal payload", zap.Error(err))
-		return fmt.Errorf("marshal payload: %w", err)
+		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
-
-	c.logger.Info("sending import keystore request", zap.String("keystore", keystore))
 
 	url := fmt.Sprintf("%s/eth/v1/keystores", c.baseURL)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		logger.Error("failed to create http request", zap.Error(err))
-		return fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	httpResp, err := c.httpClient.Do(req)
 	if err != nil {
 		logger.Error("failed to send http request", zap.Error(err))
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer httpResp.Body.Close()
 
 	respBytes, err := io.ReadAll(httpResp.Body)
 	if err != nil {
 		logger.Error("failed to read http response body", zap.Error(err))
-		return fmt.Errorf("read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 	var resp ImportKeystoreResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
 		logger.Error("failed to unmarshal http response body", zap.String("body", string(respBytes)), zap.Error(err))
-		return fmt.Errorf("unmarshal response: %w", err)
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
 		logger.Error("failed to import keystore",
 			zap.Int("status_code", httpResp.StatusCode),
 			zap.String("message", resp.Message))
-		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
+		return nil, fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
 
-	logger.Info("import keystore status code ok", zap.Any("response", string(respBytes)))
+	logger.Info("imported keystores", zap.Any("response", string(respBytes)))
 
-	for i, data := range resp.Data {
-		if data.Status != "imported" && data.Status != "duplicate" { // If several ssv-signer instances use the same web3signer instance, keystore may be already added
-			logger.Error("wrong import keystore response", zap.String("status", data.Status))
-			return fmt.Errorf("unexpected key %d import status: %s", i, data.Status)
-		}
+	var statuses []string
+	for _, data := range resp.Data {
+		statuses = append(statuses, data.Status)
 	}
 
-	return nil
+	return statuses, nil
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Web3Signer) DeleteKeystore(sharePubKey []byte) error {
-	logger := c.logger.With(zap.String("request", "DeleteKeystore"))
-	logger.Info("deleting keystore")
+func (c *Web3Signer) DeleteKeystore(sharePubKeyList []string) ([]string, error) {
+	logger := c.logger.With(zap.String("request", "DeleteKeystore"), zap.Int("count", len(sharePubKeyList)))
+	logger.Info("deleting keystores")
 
 	payload := DeleteKeystoreRequest{
-		Pubkeys: []string{hex.EncodeToString(sharePubKey)},
+		Pubkeys: sharePubKeyList,
 	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
 		logger.Error("failed to marshal payload", zap.Error(err))
-		return fmt.Errorf("marshal payload: %w", err)
+		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/eth/v1/keystores", c.baseURL)
 	req, err := http.NewRequest(http.MethodDelete, url, bytes.NewReader(body))
 	if err != nil {
 		logger.Error("failed to create http request", zap.Error(err))
-		return fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	httpResp, err := c.httpClient.Do(req)
 	if err != nil {
 		logger.Error("failed to send http request", zap.Error(err))
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer httpResp.Body.Close()
 
 	respBytes, err := io.ReadAll(httpResp.Body)
 	if err != nil {
 		logger.Error("failed to read http response body", zap.Error(err))
-		return fmt.Errorf("read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 	var resp DeleteKeystoreResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
@@ -138,19 +134,17 @@ func (c *Web3Signer) DeleteKeystore(sharePubKey []byte) error {
 		logger.Error("failed to delete keystore",
 			zap.Int("status_code", httpResp.StatusCode),
 			zap.String("message", resp.Message))
-		return fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
+		return nil, fmt.Errorf("unexpected status %d: %v", httpResp.StatusCode, resp.Message)
 	}
 
-	logger.Info("delete keystore status code ok", zap.Any("response", string(respBytes)))
+	logger.Info("deleted keystores", zap.Any("response", string(respBytes)))
 
-	for i, data := range resp.Data {
-		if data.Status != "deleted" {
-			logger.Error("wrong delete keystore response", zap.String("status", data.Status))
-			return fmt.Errorf("unexpected key %d delete status: %s", i, data.Status)
-		}
+	var statuses []string
+	for _, data := range resp.Data {
+		statuses = append(statuses, data.Status)
 	}
 
-	return nil
+	return statuses, nil
 }
 
 // Sign signs using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN

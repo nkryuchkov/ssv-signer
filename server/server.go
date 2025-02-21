@@ -51,55 +51,122 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 	return r.router.Handler
 }
 
+type Status string
+
+const (
+	StatusImported   Status = "imported"
+	StatusDuplicated Status = "duplicate"
+	StatusDeleted    Status = "deleted"
+)
+
+type AddValidatorRequest struct {
+	EncryptedSharePrivateKeys []string `json:"encrypted_share_private_keys"`
+}
+
+type AddValidatorResponse struct {
+	Statuses []Status `json:"statuses"`
+}
+
 func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
-	encryptedSharePrivKey := ctx.PostBody()
-	if len(encryptedSharePrivKey) == 0 {
+	body := ctx.PostBody()
+	if len(body) == 0 {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.WriteString("share private key not provided")
+		ctx.WriteString("request body is empty")
 		return
 	}
 
-	sharePrivateKey, err := r.operatorPrivKey.Decrypt(encryptedSharePrivKey)
-	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusUnauthorized)
-		fmt.Fprintf(ctx, "failed to decrypt share: %v", err)
+	var req AddValidatorRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		fmt.Fprintf(ctx, "failed to parse request: %v", err.Error())
 		return
 	}
 
-	shareKeystore, shareKeystorePassword, err := keys.GenerateShareKeystore(sharePrivateKey, r.keystorePasswd)
-	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		fmt.Fprintf(ctx, "failed to generate share keystore: %v", err)
-		return
+	var shareKeystores, shareKeystorePasswords []string
+
+	for _, encSharePrivKeyStr := range req.EncryptedSharePrivateKeys {
+		encSharePrivKey, err := hex.DecodeString(encSharePrivKeyStr)
+		if err != nil {
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
+			fmt.Fprintf(ctx, "failed to decode share as hex: %v", err.Error())
+		}
+
+		sharePrivKey, err := r.operatorPrivKey.Decrypt(encSharePrivKey)
+		if err != nil {
+			ctx.SetStatusCode(fasthttp.StatusUnauthorized)
+			fmt.Fprintf(ctx, "failed to decrypt share: %v", err)
+			return
+		}
+
+		shareKeystore, err := keys.GenerateShareKeystore(sharePrivKey, r.keystorePasswd)
+		if err != nil {
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+			fmt.Fprintf(ctx, "failed to generate share keystore: %v", err)
+			return
+		}
+
+		shareKeystores = append(shareKeystores, shareKeystore)
+		shareKeystorePasswords = append(shareKeystorePasswords, r.keystorePasswd)
 	}
 
-	err = r.web3Signer.ImportKeystore(shareKeystore, shareKeystorePassword)
+	statuses, err := r.web3Signer.ImportKeystore(shareKeystores, shareKeystorePasswords)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to import share to Web3Signer: %v", err)
 		return
 	}
 
-	ctx.SetContentType("application/json")
-	ctx.SetStatusCode(fasthttp.StatusOK)
-}
-
-func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
-	sharePublicKey := ctx.PostBody()
-	if len(sharePublicKey) != 48 {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		fmt.Fprintf(ctx, "invalid share public key length, expected 48, got %v", len(sharePublicKey))
+	resp, err := json.Marshal(statuses)
+	if err != nil {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		fmt.Fprintf(ctx, "failed to marshal statuses: %v", err.Error())
 		return
 	}
 
-	if err := r.web3Signer.DeleteKeystore(sharePublicKey); err != nil {
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(fasthttp.StatusOK)
+	ctx.Write(resp)
+}
+
+type RemoveValidatorRequest struct {
+	PublicKeys []string `json:"public_keys"`
+}
+type RemoveValidatorResponse struct {
+	Statuses []Status `json:"statuses"`
+}
+
+func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
+	body := ctx.PostBody()
+	if len(body) == 0 {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		ctx.WriteString("request body is empty")
+		return
+	}
+
+	var req RemoveValidatorRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		fmt.Fprintf(ctx, "failed to parse request: %v", err.Error())
+		return
+	}
+
+	statuses, err := r.web3Signer.DeleteKeystore(req.PublicKeys)
+	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to remove share from Web3Signer: %v", err)
 		return
 	}
 
+	resp, err := json.Marshal(statuses)
+	if err != nil {
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		fmt.Fprintf(ctx, "failed to marshal statuses: %v", err.Error())
+		return
+	}
+
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
+	ctx.Write(resp)
 }
 
 func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {
