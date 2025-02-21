@@ -37,22 +37,24 @@ func LoadOperatorKeystore(encryptedPrivateKeyFile, passwordFile string) (Operato
 	return operatorPrivKey, nil
 }
 
-func GenerateShareKeystore(sharePrivateKey []byte, passphrase string) (string, error) {
+type Keystore map[string]any
+
+func GenerateShareKeystore(sharePrivateKey []byte, passphrase string) (Keystore, error) {
 	sharePrivateKeyBytes, err := hex.DecodeString(strings.TrimPrefix(string(sharePrivateKey), "0x"))
 	if err != nil {
-		return "", fmt.Errorf("could not decode share private key %s: %w", string(sharePrivateKey), err)
+		return Keystore{}, fmt.Errorf("could not decode share private key %s: %w", string(sharePrivateKey), err)
 	}
 
 	sharePrivateKeyArr := [32]byte(sharePrivateKeyBytes)
 
 	sharePrivBLS := &blsu.SecretKey{}
 	if err = sharePrivBLS.Deserialize(&sharePrivateKeyArr); err != nil {
-		return "", fmt.Errorf("share private key to BLS: %w", err)
+		return Keystore{}, fmt.Errorf("share private key to BLS: %w", err)
 	}
 
 	sharePubKey, err := blsu.SkToPk(sharePrivBLS)
 	if err != nil {
-		return "", fmt.Errorf("extract BLS public key: %w", err)
+		return Keystore{}, fmt.Errorf("extract BLS public key: %w", err)
 	}
 
 	serializedSharePubKey := sharePubKey.Serialize()
@@ -60,10 +62,10 @@ func GenerateShareKeystore(sharePrivateKey []byte, passphrase string) (string, e
 
 	keystoreCrypto, err := keystorev4.New().Encrypt(sharePrivateKeyBytes, passphrase)
 	if err != nil {
-		return "", fmt.Errorf("encrypt private key: %w", err)
+		return Keystore{}, fmt.Errorf("encrypt private key: %w", err)
 	}
 
-	keystore := map[string]interface{}{
+	keystore := Keystore{
 		"crypto":  keystoreCrypto,
 		"pubkey":  sharePubKeyHex,
 		"version": 4,
@@ -71,12 +73,7 @@ func GenerateShareKeystore(sharePrivateKey []byte, passphrase string) (string, e
 		"path":    "m/12381/3600/0/0/0",
 	}
 
-	keystoreJSON, err := json.Marshal(keystore)
-	if err != nil {
-		return "", fmt.Errorf("marshal encrypted keystore: %w", err)
-	}
-
-	return string(keystoreJSON), nil
+	return keystore, nil
 }
 
 // DecryptKeystore decrypts a keystore JSON file using the provided password.

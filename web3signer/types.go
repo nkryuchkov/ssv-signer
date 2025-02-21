@@ -28,9 +28,11 @@ type DeleteKeystoreResponse struct {
 }
 
 type KeyManagerResponseData struct {
-	Status  string `json:"status"`
+	Status  Status `json:"status"`
 	Message string `json:"message"`
 }
+
+type Status string
 
 type SignRequest struct {
 	ForkInfo                    ForkInfo                              `json:"fork_info"`

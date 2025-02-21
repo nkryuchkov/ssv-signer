@@ -32,7 +32,7 @@ func New(logger *zap.Logger, baseURL string) (*Web3Signer, error) {
 }
 
 // ImportKeystore adds a key to Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Keymanager/operation/KEYMANAGER_IMPORT
-func (c *Web3Signer) ImportKeystore(keystoreList, keystorePasswordList []string) ([]string, error) {
+func (c *Web3Signer) ImportKeystore(keystoreList, keystorePasswordList []string) ([]Status, error) {
 	logger := c.logger.With(zap.String("request", "ImportKeystore"), zap.Int("count", len(keystoreList)))
 	logger.Info("importing keystores")
 
@@ -83,7 +83,7 @@ func (c *Web3Signer) ImportKeystore(keystoreList, keystorePasswordList []string)
 
 	logger.Info("imported keystores", zap.Any("response", string(respBytes)))
 
-	var statuses []string
+	var statuses []Status
 	for _, data := range resp.Data {
 		statuses = append(statuses, data.Status)
 	}
@@ -92,7 +92,7 @@ func (c *Web3Signer) ImportKeystore(keystoreList, keystorePasswordList []string)
 }
 
 // DeleteKeystore removes a key from Web3Signer using https://consensys.github.io/web3signer/web3signer-eth2.html#operation/KEYMANAGER_DELETE
-func (c *Web3Signer) DeleteKeystore(sharePubKeyList []string) ([]string, error) {
+func (c *Web3Signer) DeleteKeystore(sharePubKeyList []string) ([]Status, error) {
 	logger := c.logger.With(zap.String("request", "DeleteKeystore"), zap.Int("count", len(sharePubKeyList)))
 	logger.Info("deleting keystores")
 
@@ -139,7 +139,7 @@ func (c *Web3Signer) DeleteKeystore(sharePubKeyList []string) ([]string, error) 
 
 	logger.Info("deleted keystores", zap.Any("response", string(respBytes)))
 
-	var statuses []string
+	var statuses []Status
 	for _, data := range resp.Data {
 		statuses = append(statuses, data.Status)
 	}

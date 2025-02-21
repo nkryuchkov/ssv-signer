@@ -51,14 +51,15 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 	return r.router.Handler
 }
 
-type Status string
+type Status = web3signer.Status
 
 type AddValidatorRequest struct {
 	EncryptedSharePrivateKeys []string `json:"encrypted_share_private_keys"`
 }
 
 type AddValidatorResponse struct {
-	Statuses []Status `json:"statuses"`
+	Statuses   []Status `json:"statuses"`
+	PublicKeys []string `json:"public_keys"`
 }
 
 func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
@@ -76,7 +77,7 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	var shareKeystores, shareKeystorePasswords []string
+	var encShareKeystores, shareKeystorePasswords, publicKeys []string
 
 	for _, encSharePrivKeyStr := range req.EncryptedSharePrivateKeys {
 		encSharePrivKey, err := hex.DecodeString(encSharePrivKeyStr)
@@ -99,18 +100,37 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-		shareKeystores = append(shareKeystores, shareKeystore)
+		keystoreJSON, err := json.Marshal(shareKeystore)
+		if err != nil {
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+			fmt.Fprintf(ctx, "marshal share keystore: %v", err)
+			return
+		}
+
+		encShareKeystores = append(encShareKeystores, string(keystoreJSON))
 		shareKeystorePasswords = append(shareKeystorePasswords, r.keystorePasswd)
+		pubKey, ok := shareKeystore["pubkey"].(string)
+		if !ok {
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+			fmt.Fprintf(ctx, "failed to find public key in share keystore: %v", shareKeystore)
+			return
+		}
+		publicKeys = append(publicKeys, pubKey)
 	}
 
-	statuses, err := r.web3Signer.ImportKeystore(shareKeystores, shareKeystorePasswords)
+	statuses, err := r.web3Signer.ImportKeystore(encShareKeystores, shareKeystorePasswords)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to import share to Web3Signer: %v", err)
 		return
 	}
 
-	resp, err := json.Marshal(statuses)
+	resp := AddValidatorResponse{
+		Statuses:   statuses,
+		PublicKeys: publicKeys,
+	}
+
+	respJSON, err := json.Marshal(resp)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to marshal statuses: %v", err.Error())
@@ -119,12 +139,13 @@ func (r *Server) handleAddValidator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	ctx.Write(resp)
+	ctx.Write(respJSON)
 }
 
 type RemoveValidatorRequest struct {
 	PublicKeys []string `json:"public_keys"`
 }
+
 type RemoveValidatorResponse struct {
 	Statuses []Status `json:"statuses"`
 }
@@ -151,7 +172,11 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	resp, err := json.Marshal(statuses)
+	resp := RemoveValidatorResponse{
+		Statuses: statuses,
+	}
+
+	respJSON, err := json.Marshal(resp)
 	if err != nil {
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
 		fmt.Fprintf(ctx, "failed to marshal statuses: %v", err.Error())
@@ -160,7 +185,7 @@ func (r *Server) handleRemoveValidator(ctx *fasthttp.RequestCtx) {
 
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(fasthttp.StatusOK)
-	ctx.Write(resp)
+	ctx.Write(respJSON)
 }
 
 func (r *Server) handleSignValidator(ctx *fasthttp.RequestCtx) {

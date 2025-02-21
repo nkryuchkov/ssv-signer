@@ -118,7 +118,7 @@ func (c *SSVSignerClient) RemoveValidators(sharePubKeys ...[]byte) ([]Status, er
 		return nil, fmt.Errorf("unexpected status code %d: %s", httpResp.StatusCode, string(respBytes))
 	}
 
-	var resp server.AddValidatorResponse
+	var resp server.RemoveValidatorResponse
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
 		return nil, fmt.Errorf("unmarshal response body: %w", err)
 	}
