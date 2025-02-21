@@ -41,7 +41,7 @@ func New(baseURL string) *SSVSignerClient {
 	}
 }
 
-func (c *SSVSignerClient) AddValidators(encryptedPrivKeys ...[]byte) ([]Status, []string, error) {
+func (c *SSVSignerClient) AddValidators(encryptedPrivKeys ...[]byte) ([]Status, [][]byte, error) {
 	privKeyStrs := make([]string, 0, len(encryptedPrivKeys))
 	for _, privKey := range encryptedPrivKeys {
 		privKeyStrs = append(privKeyStrs, hex.EncodeToString(privKey))
@@ -88,7 +88,16 @@ func (c *SSVSignerClient) AddValidators(encryptedPrivKeys ...[]byte) ([]Status, 
 		return nil, nil, fmt.Errorf("unexpected public keys length, got %d, expected %d", len(resp.PublicKeys), len(encryptedPrivKeys))
 	}
 
-	return resp.Statuses, resp.PublicKeys, nil
+	publicKeys := make([][]byte, 0, len(resp.PublicKeys))
+	for _, pkStr := range resp.PublicKeys {
+		pk, err := hex.DecodeString(strings.TrimPrefix(pkStr, "0x"))
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode public key: %w", err)
+		}
+		publicKeys = append(publicKeys, pk)
+	}
+
+	return resp.Statuses, publicKeys, nil
 }
 
 func (c *SSVSignerClient) RemoveValidators(sharePubKeys ...[]byte) ([]Status, error) {
