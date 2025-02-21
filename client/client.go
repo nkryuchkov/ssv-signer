@@ -17,6 +17,12 @@ import (
 
 type Status = server.Status
 
+const (
+	StatusImported   Status = "imported"
+	StatusDuplicated Status = "duplicate"
+	StatusDeleted    Status = "deleted"
+)
+
 type ShareDecryptionError error
 
 type SSVSignerClient struct {

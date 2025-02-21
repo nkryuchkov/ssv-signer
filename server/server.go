@@ -53,12 +53,6 @@ func (r *Server) Handler() func(ctx *fasthttp.RequestCtx) {
 
 type Status string
 
-const (
-	StatusImported   Status = "imported"
-	StatusDuplicated Status = "duplicate"
-	StatusDeleted    Status = "deleted"
-)
-
 type AddValidatorRequest struct {
 	EncryptedSharePrivateKeys []string `json:"encrypted_share_private_keys"`
 }
