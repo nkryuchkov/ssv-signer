@@ -87,7 +87,7 @@ func (c *SSVSignerClient) AddValidators(encryptedPrivKeys ...[]byte) ([]Status, 
 	return resp.Statuses, nil
 }
 
-func (c *SSVSignerClient) RemoveValidator(sharePubKeys ...[]byte) ([]Status, error) {
+func (c *SSVSignerClient) RemoveValidators(sharePubKeys ...[]byte) ([]Status, error) {
 	pubKeyStrs := make([]string, 0, len(sharePubKeys))
 	for _, pubKey := range sharePubKeys {
 		pubKeyStrs = append(pubKeyStrs, hex.EncodeToString(pubKey))
